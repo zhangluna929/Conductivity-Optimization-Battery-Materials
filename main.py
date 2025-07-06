@@ -145,6 +145,21 @@ r2_svr = r2_score(y_test, y_pred_svr)
 mae_svr = mean_absolute_error(y_test, y_pred_svr)
 print(f"SVR - MSE: {mse_svr:.4f}, R2: {r2_svr:.4f}, MAE: {mae_svr:.4f}")
 
+# 🚩 残差可视化（分析系统性偏差）
+residuals_rf = y_test - y_pred_rf
+residuals_svr = y_test - y_pred_svr
+
+plt.figure(figsize=(10, 5))
+plt.scatter(y_test, residuals_rf, color='red', label='RF Residuals', alpha=0.5)
+plt.scatter(y_test, residuals_svr, color='blue', label='SVR Residuals', alpha=0.5)
+plt.axhline(0, linestyle='--', color='k')
+plt.xlabel('True Values (Conductivity)')
+plt.ylabel('Residuals')
+plt.legend()
+plt.title('Residuals vs True Values')
+plt.show()
+
+
 # 🚩 可视化预测结果对比
 plt.figure(figsize=(10, 6))
 plt.scatter(y_test, y_pred_rf, color='red', label='Random Forest', alpha=0.5)
@@ -176,9 +191,34 @@ plt.xticks(rotation=45, ha='right')
 plt.tight_layout()
 plt.show()
 
+# 🚩 SHAP 可解释性分析（解释哪些特征影响最大）
+import shap
+
+# 对 Random Forest 模型进行解释
+explainer = shap.TreeExplainer(rf_model)
+
+# 获取预处理后的测试集特征用于解释
+X_test_transformed = preprocessor.transform(X_test)
+
+# 计算 SHAP 值（解释每个特征对预测结果的贡献）
+shap_values = explainer.shap_values(X_test_transformed)
+
+# 绘制 SHAP 总结图（特征影响力排序，可用于论文插图）
+shap.summary_plot(shap_values, X_test_transformed, feature_names=all_feature_names)
+
+
 # 🚩 保存模型
 joblib.dump(grid_search_rf.best_estimator_, 'best_rf_pipeline.pkl')
 joblib.dump(grid_search_svr.best_estimator_, 'best_svr_pipeline.pkl')
 print("Pipelines saved successfully (Random Forest and SVR).")
 joblib.dump(preprocessor, 'preprocessor.pkl')
 print("Preprocessor saved successfully.")
+
+# 绘图
+results_df = pd.DataFrame({
+    'True_Conductivity': y_test.values,
+    'RF_Predicted': y_pred_rf,
+    'SVR_Predicted': y_pred_svr
+})
+results_df.to_csv('prediction_results.csv', index=False)
+print("Prediction results saved to prediction_results.csv")
